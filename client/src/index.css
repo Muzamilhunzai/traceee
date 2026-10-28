@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-softbg text-slate-800 antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { @apply rounded-full bg-slate-200; }
+
+@layer components {
+  .input {
+    @apply w-full rounded-xl border border-slate-100 bg-[#F8F9FC] px-4 py-2.5 text-sm text-slate-800
+           outline-none transition placeholder:text-slate-400
+           focus:border-primary/50 focus:bg-white focus:ring-4 focus:ring-primary/10;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wide;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-700 hover:shadow-float;
+  }
+  .btn-secondary {
+    @apply btn bg-[#F8F9FC] text-slate-600 hover:bg-slate-100 hover:text-slate-800;
+  }
+  .btn-danger {
+    @apply btn bg-rose-500 text-white hover:bg-rose-600 hover:shadow-lg hover:shadow-rose-500/30;
+  }
+  .card {
+    @apply rounded-[1.5rem] bg-white shadow-soft border border-white/50;
+  }
+}

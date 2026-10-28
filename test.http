@@ -1,0 +1,163 @@
+### TraceNet — REST Client Test Suite
+### Requires VS Code "REST Client" extension (humao.rest-client)
+### Click "Send Request" above each block, top to bottom.
+###
+### The very first request saves its token into @token for later blocks.
+
+@host     = http://localhost:5000
+@email    = admin@tracenet.local
+@password = Admin123!
+
+
+# =====================================================================
+# 1. HEALTH
+# =====================================================================
+GET {{host}}/api/health HTTP/1.1
+
+
+# =====================================================================
+# 2. LOGIN  (saves token for subsequent requests)
+# =====================================================================
+# @name login
+POST {{host}}/api/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email":    "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+@token = {{login.response.body.token}}
+
+
+# =====================================================================
+# 3. WHO AM I
+# =====================================================================
+GET {{host}}/api/auth/me HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 4. DASHBOARD — everything the frontend reads
+# =====================================================================
+GET {{host}}/api/dashboard-stats HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 5. CASES — paginated list with search
+# =====================================================================
+GET {{host}}/api/cases?page=1&limit=5&search=arson&sort=opened_date&order=desc HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 6. CREATE A CASE
+# =====================================================================
+# @name createCase
+POST {{host}}/api/cases HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "case_number": "CR-2025-TEST-001",
+  "title":       "Test Case from test.http",
+  "description": "Created by the REST Client test suite",
+  "priority":    "High",
+  "status":      "Active",
+  "opened_date": "2025-10-28"
+}
+
+###
+@caseId = {{createCase.response.body.id}}
+
+
+# =====================================================================
+# 7. ★ ADBMS — ACID ROLLBACK DEMO
+# ---------------------------------------------------------------------
+# simulate_custody_failure=true → the custody insert throws inside the
+# db.transaction() wrapper → evidence row is rolled back → 500 error
+# with { rolledBack: true }.
+# =====================================================================
+POST {{host}}/api/evidence HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "case_id":                  1,
+  "name":                     "Rollback Demo Item",
+  "type":                     "Physical",
+  "description":              "This row should NOT persist",
+  "simulate_custody_failure": true
+}
+
+
+# =====================================================================
+# 8. ★ ADBMS — HAPPY PATH (evidence + custody commit together)
+# =====================================================================
+POST {{host}}/api/evidence HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "case_id":      1,
+  "name":         "Happy Path Item",
+  "type":         "Digital",
+  "description":  "Both evidence and custody rows persist",
+  "location_found": "Unit 4B door"
+}
+
+
+# =====================================================================
+# 9. VERIFY ROLLBACK — should return total: 0
+# =====================================================================
+GET {{host}}/api/evidence?search=Rollback HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 10. VERIFY COMMIT — should return the "Happy Path" row
+# =====================================================================
+GET {{host}}/api/evidence?search=Happy HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 11. RELATIONSHIP GRAPH for case 1
+# =====================================================================
+GET {{host}}/api/relationships/1/graph HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 12. AUDIT LOG for case 1 (should contain our create-case + evidence)
+# =====================================================================
+GET {{host}}/api/cases/1/activity HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 13. UPDATE THE CASE
+# =====================================================================
+PUT {{host}}/api/cases/{{caseId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "status":   "Closed",
+  "priority": "Critical"
+}
+
+
+# =====================================================================
+# 14. DELETE THE CASE (cascades — audit row disappears with it)
+# =====================================================================
+DELETE {{host}}/api/cases/{{caseId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+
+# =====================================================================
+# 15. ATTEMPT UNAUTHENTICATED — expect 401
+# =====================================================================
+GET {{host}}/api/cases HTTP/1.1
